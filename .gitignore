@@ -1,9 +1,8 @@
-*.rpm
-*.src.tar.*
-*.pkg.tar.*
-*.orig
-*.rej
-*.swp
-*.part
-src
-pkg
+*
+
+# Warning: files in source=() will be wiped if not explicitly excluded here!
+!/.gitignore
+!/PKGBUILD
+!/.SRCINFO
+!/*.patch
+!/*.conf

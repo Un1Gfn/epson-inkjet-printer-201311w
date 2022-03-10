@@ -1,53 +1,72 @@
-# Contributor: Andre Klitzing <andre () incubo () de>
+# Maintainer: Andre Klitzing <andre () incubo () de>
 
 pkgname=epson-inkjet-printer-201311w
-_pkgname_filter=epson-inkjet-printer-filter
+pkgver=1.0.1
+
 _suffix=1lsb3.2.src.rpm
-pkgver=1.0.0
-pkgrel=10
+
+_pkgnameF=epson-inkjet-printer-filter
+_pkgverF=1.0.0
+
+pkgrel=1
 pkgdesc="Epson printer driver (L1300)"
-arch=('i686' 'x86_64')
+arch=($CARCH)
 url="http://download.ebz.epson.net/dsc/search/01/search/?OSC=LX"
-license=('LGPL' 'custom:Epson Licence Agreement')
-depends=('cups' 'ghostscript')
-#makedepends=('libtool' 'make' 'automake' 'autoconf')
-source=(http://download.ebz.epson.net/dsc/op/stable/SRPMS/${pkgname}-${pkgver}-${_suffix} fixbuild.patch)
+license=(LGPL 'custom:Epson Licence Agreement')
+depends=(cups ghostscript)
+source=(
+  ${pkgname}-${pkgver}-${_suffix}
+  fixbuild.patch
+)
+sha256sums=(
+  2d06e7afb14644b15c86e57434d37a3aec89c9c9477fd43dd098046bed35863b
+  4936d365168c0a8519093e003b2dddc680399e14d3e6e0ea49b59617672323c3
+)
 
 build() {
-  cd "$srcdir" || exit
-  tar xzf $pkgname-$pkgver.tar.gz
-  FILTER_FILE=$(ls $_pkgname_filter*.tar.gz)
-  tar xzf $FILTER_FILE
 
-  cd "${FILTER_FILE%.tar.gz}" || exit
-  patch -p1 -i "$srcdir"/fixbuild.patch
-  autoreconf -f -i
+  sha256sum -c <<<"df9dfae1ff1ab9dcfcf392a36a258971dae78c13d2fe706dce2cf43d12d78da6  $_pkgnameF-$_pkgverF.tar.gz"
+
+  tar xf $_pkgnameF-$_pkgverF.tar.gz
+  cd $_pkgnameF-$_pkgverF
+
+  patch -p1 --verbose -i "$srcdir"/fixbuild.patch
+
+  # autoupdate -vf
+  autoreconf -vfi -Wall
+
   # if you have runtime problems: add "--enable-debug" and look into /tmp/epson-inkjet-printer-filter.txt
-  ./configure LDFLAGS="$LDFLAGS -Wl,--no-as-needed" --prefix=/opt/$pkgname
+  export LDFLAGS="$LDFLAGS -Wl,--no-as-needed"
+  ./configure  --prefix=/opt/$pkgname
+
   make
+
 }
 
 package() {
-  cd "$srcdir/$pkgname-$pkgver" || exit
-  install -d "$pkgdir/opt/$pkgname/"
-  if [ "$CARCH" = "x86_64" ]; then
-    cp -a --no-preserve=mode lib64 "$pkgdir/opt/$pkgname/"
-  else
-    cp -a --no-preserve=mode lib "$pkgdir/opt/$pkgname/"
-  fi
-  cp -a --no-preserve=mode resource "$pkgdir/opt/$pkgname/"
 
-  if [ -e "watermark" ]; then
-    cp -a --no-preserve=mode watermark "$pkgdir/opt/$pkgname/"
-  fi
-  install -d "$pkgdir/usr/share/cups/model/$pkgname"
-  install -m 644 ppds/* "$pkgdir/usr/share/cups/model/$pkgname"
+  # install filter (built from source)
+  cd "$srcdir"/$_pkgnameF-$_pkgverF
+  install -vDm755 src/epson_inkjet_printer_filter "$pkgdir/opt/$pkgname/cups/lib/filter/epson_inkjet_printer_filter"
+  echo
 
-  cd "$srcdir" || exit
-  FILTER_FILE=$(ls $_pkgname_filter*.tar.gz)
-  cd "${FILTER_FILE%.tar.gz}" || exit
-  install -d "$pkgdir/opt/$pkgname/cups/lib/filter/"
-  install -m 755 src/epson_inkjet_printer_filter "$pkgdir/opt/$pkgname/cups/lib/filter/epson_inkjet_printer_filter"
+  # extract driver (distributed in binary)
+  cd "$srcdir"
+  tar xf $pkgname-$pkgver.tar.gz
+  echo
+
+  # install driver (distributed in binary)
+  cd $pkgname-$pkgver
+  install -vdm755 "$pkgdir/opt/$pkgname/"
+  case "$CARCH" in
+    x86_64) cp -av --no-preserve=mode lib64 "$pkgdir"/opt/$pkgname/lib; ln -sfv lib "$pkgdir"/opt/$pkgname/lib64;;
+    i686)   cp -av --no-preserve=mode lib   "$pkgdir"/opt/$pkgname/lib;;
+    *)      echo "unsupported architecture '$CARCH'"; false;;
+  esac
+  cp -av --no-preserve=mode resource "$pkgdir"/opt/$pkgname/
+  [ -e watermark ] && cp -av --no-preserve=mode watermark "$pkgdir/opt/$pkgname/"
+  install -vdm755 "$pkgdir"/usr/share/cups/model/$pkgname
+  install -vDm644 ppds/* "$pkgdir"/usr/share/cups/model/$pkgname/
+  echo
+
 }
-sha256sums=('863044f6fd71af976e9d72fd73c7d483388f1562fe14f4bae6296338e23f1352'
-            '85b0493972dcb92befd2bbf8d0ce705fc6280d54d83e985e9f7d0301bb01af50')
